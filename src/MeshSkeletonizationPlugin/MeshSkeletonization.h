@@ -75,11 +75,17 @@ public:
 
     // Typedefs SOFA Topology
     using Triangle = sofa::core::topology::BaseMeshTopology::Triangle;
+    using Edge = sofa::core::topology::BaseMeshTopology::Edge;
     using SeqTriangles = sofa::core::topology::BaseMeshTopology::SeqTriangles;
+    using SeqEdges = sofa::core::topology::BaseMeshTopology::SeqEdges;
 
-    // Inputs 
-    sofa::core::objectmodel::Data<VecCoord> d_inVertices; ///< List of vertices
-    sofa::core::objectmodel::Data<SeqTriangles> d_inTriangles; ///< List of triangles
+    // Inputs
+    Data<VecCoord> d_inVertices; ///< List of vertices
+    Data<SeqTriangles> d_inTriangles; ///< List of triangles
+
+    // Outputs
+    Data<VecCoord> d_outVertices; ///< List of the skeleton's vertices
+    Data<SeqEdges> d_outEdges; ///< List of the skeleton's edges
 
     // Parameters
     sofa::core::objectmodel::DataFileName d_outSkeletonFilename; ///< File path to export skeleton

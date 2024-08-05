@@ -38,11 +38,15 @@ template <class DataTypes>
 MeshSkeletonization<DataTypes>::MeshSkeletonization()
     : d_inVertices(initData (&d_inVertices, "inputVertices", "List of input mesh vertices"))
     , d_inTriangles(initData(&d_inTriangles, "inputTriangles", "List of input mesh triangles"))
+    , d_outVertices(initData(&d_outVertices, "outputVertices", "List of output skeleton vertices"))
+    , d_outEdges(initData(&d_outEdges, "outputEdges", "List of output skeleton edges"))
     , d_outSkeletonFilename(initData(&d_outSkeletonFilename, "outputSkeleton", "File path to output skeleton file"))
 {
     addInput(&d_inVertices);
     addInput(&d_inTriangles);
 
+    addOutput(&d_outVertices);
+    addOutput(&d_outEdges);
     addOutput(&d_outSkeletonFilename);
 }
 
@@ -50,20 +54,16 @@ MeshSkeletonization<DataTypes>::MeshSkeletonization()
 template <class DataTypes>
 void MeshSkeletonization<DataTypes>::init() 
 {
-    //Input
-    if(d_outSkeletonFilename.getValue().empty())
-    {
-        msg_error() << "No input File to store the skeleton data, please set a inputFile path.";
-        return;
-    }
+    // trigger update
+    this->doUpdate();
 }
 
 
 template <class DataTypes>
 void MeshSkeletonization<DataTypes>::geometryToPolyhedron(Polyhedron &s)
 {
-    VecCoord inVertices = d_inVertices.getValue();
-    SeqTriangles inTriangles = d_inTriangles.getValue();
+    const VecCoord& inVertices = d_inVertices.getValue();
+    const SeqTriangles& inTriangles = d_inTriangles.getValue();
 
     geometryToPolyhedronOp<HalfedgeDS> gen(inVertices, inTriangles);
     s.delegate(gen);
@@ -85,8 +85,34 @@ void MeshSkeletonization<DataTypes>::doUpdate()
     }
         
     CGAL::extract_mean_curvature_flow_skeleton(tmesh, m_skeleton);
-    msg_info() << "Number of vertices of the output skeleton: " << boost::num_vertices(m_skeleton);
-    msg_info() << "Number of edges of the output skeleton: " << boost::num_edges(m_skeleton);
+    const auto skeletonNbVertices = boost::num_vertices(m_skeleton);
+    const auto skeletonNbEdges = boost::num_edges(m_skeleton);
+    msg_info() << "Number of vertices of the output skeleton: " << skeletonNbVertices;
+    msg_info() << "Number of edges of the output skeleton: " << skeletonNbEdges;
+
+    // Convert CGAL data to SOFA data (and store them)
+    {
+        auto sofaOutVertices = sofa::helper::getWriteOnlyAccessor(d_outVertices);
+        auto sofaOutEdges = sofa::helper::getWriteOnlyAccessor(d_outEdges);
+        sofaOutVertices.clear();
+        sofaOutEdges.clear();
+        sofaOutVertices.resize(skeletonNbVertices);
+        sofaOutEdges.reserve(skeletonNbEdges);
+
+        for (const Skeleton_edge& e : CGAL::make_range(edges(m_skeleton)))
+        {
+            const auto e0 = source(e, m_skeleton);
+            const auto e1 = target(e, m_skeleton);
+
+            const Point& s = m_skeleton[e0].point;
+            const Point& t = m_skeleton[e1].point;
+
+            sofaOutVertices[e0] = { s[0], s[1], s[2] };
+            sofaOutVertices[e1] = { t[0], t[1], t[2] };
+
+            sofaOutEdges.emplace_back(e0, e1);
+        }
+    }
 
     if (d_outSkeletonFilename.isSet())
     {
@@ -102,20 +128,22 @@ template <class DataTypes>
 void MeshSkeletonization<DataTypes>::draw(const sofa::core::visual::VisualParams* vparams) 
 {
     using Color = sofa::type::RGBAColor;
-    std::vector< type::Vec3 > dvec;
+    std::vector< type::Vec3 > vertices;
 
-    for(const Skeleton_edge& e : CGAL::make_range(edges(m_skeleton))) 
+    auto sofaOutVertices = sofa::helper::getReadAccessor(d_outVertices);
+    auto sofaOutEdges = sofa::helper::getReadAccessor(d_outEdges);
+    vertices.reserve(sofaOutEdges.size() * 2);
+
+    [[maybe_unused]] auto state = vparams->drawTool()->makeStateLifeCycle();
+    vparams->drawTool()->disableLighting();
+
+    for(const auto& e : sofaOutEdges)
     {
-        const Point& s = m_skeleton[source(e, m_skeleton)].point;
-        const Point& t = m_skeleton[target(e, m_skeleton)].point;
+        vertices.emplace_back(DataTypes::getCPos(sofaOutVertices[e[0]]));
+        vertices.emplace_back(DataTypes::getCPos(sofaOutVertices[e[1]]));
+    }
+    vparams->drawTool()->drawLines(vertices, 1, Color::red());
 
-                
-        dvec.emplace_back(Coord(s[0], s[1], s[2]));
-        dvec.emplace_back(Coord(t[0], t[1], t[2]));
-
-        vparams->drawTool()->drawLines( dvec, 40, Color::red());
-        dvec.clear();
-    } 
 }
 
 } // namespace meshskeletonizationplugin
