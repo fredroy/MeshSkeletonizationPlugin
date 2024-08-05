@@ -82,7 +82,6 @@ public:
     sofa::core::objectmodel::Data<SeqTriangles> d_inTriangles; ///< List of triangles
 
     // Parameters
-    sofa::core::objectmodel::DataFileName d_inMeshFilename;
     sofa::core::objectmodel::DataFileName d_outSkeletonFilename; ///< File path to export skeleton
         
 private:

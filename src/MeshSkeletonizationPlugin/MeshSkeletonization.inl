@@ -39,11 +39,9 @@ MeshSkeletonization<DataTypes>::MeshSkeletonization()
     : d_inVertices(initData (&d_inVertices, "inputVertices", "List of input mesh vertices"))
     , d_inTriangles(initData(&d_inTriangles, "inputTriangles", "List of input mesh triangles"))
     , d_outSkeletonFilename(initData(&d_outSkeletonFilename, "outputSkeleton", "File path to output skeleton file"))
-    , d_inMeshFilename(initData (&d_inMeshFilename, "filename", "Input mesh in .off format")) 
 {
     addInput(&d_inVertices);
     addInput(&d_inTriangles);
-    addInput(&d_inMeshFilename);
 
     addOutput(&d_outSkeletonFilename);
 }
@@ -77,18 +75,8 @@ void MeshSkeletonization<DataTypes>::doUpdate()
 {
     Polyhedron tmesh;
 
-    if(d_inMeshFilename.getFullPath() != "") 
-    {
-        const char* filename = d_inMeshFilename.getFullPath().c_str();
-        std::ifstream input(filename);
-        input >> tmesh;
-        msg_info() << "Loading Polyhedron from file.";
-    } 
-    else 
-    {
-        geometryToPolyhedron(tmesh);
-        msg_info() << "Number of vertices of the input mesh: " << boost::num_vertices(tmesh);
-    }
+    geometryToPolyhedron(tmesh);
+    msg_info() << "Number of vertices of the input mesh: " << boost::num_vertices(tmesh);
 
     if (!CGAL::is_triangle_mesh(tmesh))
     {
